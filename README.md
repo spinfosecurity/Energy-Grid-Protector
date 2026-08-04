@@ -129,3 +129,58 @@ Report saved: ./reports/Energy-Grid-Protector-20260803-221512.csv
 - ❌ **Does NOT scan IT networks** — focused on OT/SCADA subnets, substations, and control centers
 
 ## Repository Structure
+
+```
+Energy-Grid-Protector/
+├── README.md
+├── LICENSE
+├── CONTRIBUTING.md
+├── reports/                  # Generated scan reports (CSV/text)
+├── scripts/
+│   ├── powershell/           # PowerShell version for Windows
+│   │   └── Energy-Grid-Protector.ps1
+│   └── bash/                 # Bash version for Linux/macOS
+│       └── Energy-Grid-Protector.sh
+└── docs/                     # (future) detailed documentation
+```
+
+## Documentation
+
+Detailed documentation for scan modes, vendor fingerprinting logic, and report formats will be added to the `docs/` folder in future releases.
+
+## Technical Specifications
+
+- **Supported OS**: Windows 10/11, Linux (Ubuntu, Debian, RHEL, CentOS), macOS
+- **PowerShell**: 5.1+ (Windows PowerShell) or 7.0+ (PowerShell Core)
+- **Bash**: 4.0+ (Linux/macOS)
+- **Network Requirements**: Direct or routed access to target OT/SCADA subnets
+- **Privileges**: No elevated privileges required for basic port scanning; admin/root may be needed for banner grabbing
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+- Reporting bugs or false positives
+- Suggesting new vendor fingerprints or protocol parsers
+- Improving scan performance or report formatting
+- Adding support for additional ICS protocols
+
+## Issues & Support
+
+- 🐛 **Bug reports**: Open an issue on the [GitHub Issues](https://github.com/spinfosecurity/Energy-Grid-Protector/issues) page
+- 💬 **Questions**: Use the Discussions tab or email [spiritweet@gmail.com](mailto:spiritweet@gmail.com)
+- 📧 **Security disclosures**: Email [spiritweet@gmail.com](mailto:spiritweet@gmail.com) with [SECURITY] in subject line
+
+## References
+
+- CISA Industrial Control Systems Advisories: [https://www.cisa.gov/ics](https://www.cisa.gov/ics)
+- NERC CIP Standards: [https://www.nerc.com/standards](https://www.nerc.com/standards)
+- DOE Cybersecurity for Energy Delivery Systems: [https://www.energy.gov/ceser/cybersecurity](https://www.energy.gov/ceser/cybersecurity)
+- IEC 62351 (Power systems management and associated data exchange security): [https://webstore.iec.ch](https://webstore.iec.ch)
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This tool is provided for **defensive, authorized security testing only**. Users must have explicit permission from asset owners before scanning any network. The authors assume no liability for misuse, service disruption, or compliance gaps. Always test in a staging environment before production deployment. OT networks are sensitive — use passive scanning modes where possible and coordinate with operations teams.
