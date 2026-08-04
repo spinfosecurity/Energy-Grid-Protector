@@ -6,6 +6,8 @@
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://docs.microsoft.com/en-us/powershell/)
 [![Bash](https://img.shields.io/badge/Bash-4.0%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
+[![NERC CIP Aligned](https://img.shields.io/badge/NERC%20CIP-CIP--007%20%7C%20CIP--010%20%7C%20CIP--015-orange)](#)
+[![CISA Aligned](https://img.shields.io/badge/CISA-ICS%20Advisories%20Aligned-red)](#)
 [![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen.svg)]()
 [![GitHub issues](https://img.shields.io/github/issues/spinfosecurity/Energy-Grid-Protector)](https://github.com/spinfosecurity/Energy-Grid-Protector/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/spinfosecurity/Energy-Grid-Protector)](https://github.com/spinfosecurity/Energy-Grid-Protector/commits/main)
@@ -24,10 +26,13 @@
 - [Sample Output](#sample-output)
 - [What This Does NOT Do](#what-this-does-not-do)
 - [Repository Structure](#repository-structure)
+- [FAQ](#faq)
+- [Who This Is For](#who-this-is-for)
 - [Documentation](#documentation)
 - [Technical Specifications](#technical-specifications)
 - [Contributing](#contributing)
 - [Issues & Support](#issues--support)
+- [Support This Project](#support-this-project)
 - [References](#references)
 - [License](#license)
 - [Disclaimer](#disclaimer)
@@ -135,6 +140,7 @@ Energy-Grid-Protector/
 ├── README.md
 ├── LICENSE
 ├── CONTRIBUTING.md
+├── SECURITY.md
 ├── reports/                  # Generated scan reports (CSV/text)
 ├── scripts/
 │   ├── powershell/           # PowerShell version for Windows
@@ -143,6 +149,44 @@ Energy-Grid-Protector/
 │       └── Energy-Grid-Protector.sh
 └── docs/                     # (future) detailed documentation
 ```
+
+---
+
+## FAQ
+
+**Q: Does this tool require admin/root privileges?**  
+A: No. Basic port scanning uses standard TCP connections. No raw sockets or packet crafting required.
+
+**Q: Will this trigger IDS/IPS alerts on my substation network?**  
+A: Possibly. Port-level scanning is detectable. Always coordinate with your NOC and energy operations team and obtain written authorization before scanning any production OT network.
+
+**Q: Does it exploit any of the CVEs it detects?**  
+A: No. This tool only detects port reachability and fingerprints vendor banners. It does not send exploit payloads, attempt authentication, or modify any device.
+
+**Q: Can I run this on an air-gapped substation network?**  
+A: Yes. No internet access is required. Copy the script to a jump host inside the air-gapped environment.
+
+**Q: Is this NERC CIP compliant?**  
+A: This tool supports CIP-007 (Security Management Controls), CIP-010 (Configuration Change Management), and CIP-015 (Internal Network Security Monitoring) activities, but it does not replace a formal NERC CIP audit or assessment.
+
+**Q: Can I integrate the CSV reports into my SIEM or ticketing system?**  
+A: Yes. The CSV output is designed to import directly into ServiceNow, Jira, Splunk, or any SIEM that accepts CSV ingestion.
+
+**Q: Is it free for commercial use by utilities?**  
+A: Yes — MIT License. Use it, modify it, redistribute it. Attribution appreciated.
+
+---
+
+## Who This Is For
+
+- **Utility OT security engineers** at electric cooperatives, investor-owned utilities, and municipal power authorities
+- **Substation automation engineers** responsible for RTU, relay, and SCADA network security
+- **NERC CIP compliance teams** documenting CIP-007 and CIP-010 control evidence
+- **ICS/SCADA penetration testers** conducting initial reconnaissance on grid environments
+- **Incident responders** triaging suspected intrusions across control center networks
+- **Energy sector CISOs** needing a free, fast exposure snapshot before a formal risk assessment
+
+---
 
 ## Documentation
 
@@ -164,12 +208,32 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 - Improving scan performance or report formatting
 - Adding support for additional ICS protocols
 
+## Issues & Support
+
+Found a bug? Have a feature request? [Open an issue](https://github.com/spinfosecurity/Energy-Grid-Protector/issues). For security vulnerabilities in the tool itself, see [SECURITY.md](./SECURITY.md).
+
+---
+
+## ⭐ Support This Project
+
+If Energy-Grid-Protector helped you find a real exposure on your grid infrastructure, consider:
+
+- ⭐ **Starring this repo** — it helps other utility security teams discover it
+- 🐛 **Opening an issue** if you find a bug or want a new vendor/CVE added
+- 🤝 **Contributing** — see [CONTRIBUTING.md](./CONTRIBUTING.md)
+- 💬 **Sharing** with your energy sector ISAC contacts, NERC CIP team, or SOC colleagues
+
+> Built by [@spinfosecurity](https://github.com/spinfosecurity) — learning by building free tools that detect and protect critical infrastructure.
+
+---
+
 ## References
 
 - CISA Industrial Control Systems Advisories: [https://www.cisa.gov/ics](https://www.cisa.gov/ics)
 - NERC CIP Standards: [https://www.nerc.com/standards](https://www.nerc.com/standards)
 - DOE Cybersecurity for Energy Delivery Systems: [https://www.energy.gov/ceser/cybersecurity](https://www.energy.gov/ceser/cybersecurity)
 - IEC 62351 (Power systems management and associated data exchange security): [https://webstore.iec.ch](https://webstore.iec.ch)
+- [Security Policy](./SECURITY.md)
 
 ## License
 
