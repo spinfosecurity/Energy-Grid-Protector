@@ -164,12 +164,6 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 - Improving scan performance or report formatting
 - Adding support for additional ICS protocols
 
-## Issues & Support
-
-- 🐛 **Bug reports**: Open an issue on the [GitHub Issues](https://github.com/spinfosecurity/Energy-Grid-Protector/issues) page
-- 💬 **Questions**: Use the Discussions tab or email [spiritweet@gmail.com](mailto:spiritweet@gmail.com)
-- 📧 **Security disclosures**: Email [spiritweet@gmail.com](mailto:spiritweet@gmail.com) with [SECURITY] in subject line
-
 ## References
 
 - CISA Industrial Control Systems Advisories: [https://www.cisa.gov/ics](https://www.cisa.gov/ics)
