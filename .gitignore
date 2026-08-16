@@ -1,0 +1,13 @@
+# Generated assessment reports may contain sensitive exposure data
+reports/*.csv
+reports/*.json
+reports/*.txt
+reports/*.log
+
+# Local and temporary files
+*.log
+*.tmp
+.env
+.vscode/
+.idea/
+.DS_Store
