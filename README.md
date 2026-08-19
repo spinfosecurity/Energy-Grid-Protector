@@ -1,4 +1,4 @@
-# Energy-Grid-Protector - Free Power Grid & Substation OT/SCADA Security Scanner
+# Energy Grid Protector (EGP) - Free Power Grid & Substation OT/SCADA Security Scanner
 
 **Energy-Grid-Protector** is a free, open-source cybersecurity scanning tool that helps utility operators, OT security teams, and critical infrastructure professionals detect internet-exposed power grid systems, substation SCADA networks, and ICS/OT devices before attackers exploit them. Available in both **PowerShell** and **Bash**, Energy-Grid-Protector is built on real CISA ICS advisories, NERC CIP requirements, and vendor-specific CVE intelligence from ABB, Hitachi Energy, Siemens, GE, and SEL.
 
@@ -59,13 +59,14 @@ Critical electrical infrastructure runs on legacy industrial protocols that lack
 ## What This Tool Does
 
 - **Scans substation and control center networks** for exposed ICS/OT devices, SCADA workstations, and RTUs
-- **Detects primary attack vectors**: RDP (3389), VNC (5900), SSH (22), Telnet (23), HTTP/HTTPS (80/443)
-- **Identifies ICS protocol exposure**: DNP3 (20000), IEC 61850 MMS (102), Modbus TCP (502), IEC 104 (2404), PROFINET (34962/34963)
-- **Fingerprints vendor-specific platforms**: ABB RTU500/600, Hitachi Energy Network Manager™, Siemens SICAM, GE Multilin, SEL relays
-- **Flags critical vendor CVEs** including ABB remote code execution vulnerabilities, Hitachi Energy privilege escalation flaws, and Siemens grid equipment CVEs
-- **Prioritizes findings by severity** (CRITICAL vs HIGH vs MEDIUM)
-- **Generates simple text/CSV reports** for sharing with OT teams, compliance auditors, and CISOs
+- **Detects primary attack vectors**: RDP (3389), VNC (5900/5901), SSH (22), Telnet (23), FTP (21), HTTP/HTTPS (80/443)
+- **Identifies ICS protocol exposure**: DNP3 (20000), IEC 61850 MMS (102), Modbus TCP (502), IEC 104 (2404), EtherNet/IP (44818/2222), PROFINET (34962/34963), OPC UA (4840)
+- **Flags critical vendor CVEs** including Hitachi Energy e-mesh EMS, ABB/B&R firmware vulnerabilities, ABB 800xA DLL hijacking, and RTU500 multi-CVE clusters
+- **Prioritizes findings by severity** (CRITICAL / HIGH / MEDIUM) with color-coded console output
+- **Deduplicates findings** — each IP:port pair is reported once regardless of how many checks match it
+- **Generates timestamped text reports** saved to `./reports/` for sharing with OT teams, compliance auditors, and CISOs
 - **Runs on Windows, Linux, and macOS** via matching PowerShell and Bash implementations
+- **No external dependencies** — uses only `/dev/tcp` (Bash) or .NET `TcpClient` (PowerShell); no nmap, nc, or Python required
 
 ## Real-World Threat Intelligence
 
@@ -101,28 +102,77 @@ Energy-Grid-Protector doesn't just scan generic ports — it fingerprints known 
 
 ### PowerShell Version (Windows)
 ```powershell
-.\scripts\powershell\Energy-Grid-Protector.ps1
+.\scripts\powershell\EGP.ps1 -Subnet 192.168.10.0/24
+```
+
+Optional parameters:
+```powershell
+# Fast CVE-only scan with 1 second timeout
+.\scripts\powershell\EGP.ps1 -Subnet 192.168.10.0/24 -TimeoutMs 1000 -CveOnly
+
+# Full scan with custom output directory
+.\scripts\powershell\EGP.ps1 -Subnet 192.168.10.0/24 -OutputDir C:\Reports\EGP
 ```
 
 ### Bash Version (Linux/macOS)
 ```bash
-chmod +x scripts/bash/Energy-Grid-Protector.sh
-./scripts/bash/Energy-Grid-Protector.sh
+chmod +x scripts/bash/EGP.sh
+./scripts/bash/EGP.sh -s 192.168.10.0/24
 ```
 
-Both versions deliver identical scanning logic, vendor fingerprinting, and reporting — pick whichever matches your OS.
+Optional parameters:
+```bash
+# Fast CVE-only scan with 2 second timeout
+./scripts/bash/EGP.sh -s 192.168.10.0/24 -t 2 -c
+
+# Full scan with custom output directory
+./scripts/bash/EGP.sh -s 192.168.10.0/24 -o /var/log/egp
+```
+
+Both versions deliver identical scanning logic and severity-tagged reporting — pick whichever matches your OS.
 
 ## Sample Output
 
 ```text
-[2026-08-03 22:15:01] [CRITICAL] 10.20.5.33:20000  DNP3 outstation exposed — ABB RTU540 fingerprint detected (unauthenticated, ICSA-25-201-01)
-[2026-08-03 22:15:04] [CRITICAL] 10.20.5.41:102     IEC 61850 MMS reachable — Hitachi Energy Network Manager™ HMI (CVE-2025-38472, CVSS 9.1)
-[2026-08-03 22:15:07] [HIGH]     10.20.5.55:502     Modbus TCP exposed — GE Multilin UR relay (default credentials likely)
-[2026-08-03 22:15:09] [HIGH]     10.20.5.61:3389    RDP exposed on substation SCADA network — segment immediately
-[2026-08-03 22:15:12] [MEDIUM]   10.20.5.70:22      SSH reachable — review access policy and MFA enforcement
+============================================================
+  Energy Grid Protector (EGP) v1.1.0
+  OT/SCADA Cybersecurity Scanner - Power Grid Edition
+  github.com/spinfosecurity/Energy-Grid-Protector
+  Ref: CISA AA26-097A | FBI PSA 2026-08-01
+  USE ONLY ON NETWORKS YOU ARE AUTHORIZED TO SCAN
+============================================================
 
-Scan complete. Findings: 5 (2 CRITICAL, 2 HIGH, 1 MEDIUM)
-Report saved: ./reports/Energy-Grid-Protector-20260803-221512.csv
+[*] Mode       : FULL SCAN
+[*] Target     : 10.20.5.0/24
+[*] Timeout    : 1s per port
+[*] Report     : ./reports/EGP_Report_20260803_221500.txt
+
+[*] Progress: [##########################                ] 52% | Host: 10.20.5.33
+
+  [CRITICAL] 10.20.5.33:20000 - RTU500-MULTI-CVE
+    Hitachi Energy RTU500 Series - Multiple disclosed vulnerabilities ...
+
+  [HIGH] 10.20.5.41:102 - ICS-PROTOCOL:IEC-61850/S7
+    IEC 61850 MMS / Siemens S7 port exposed ...
+
+  [HIGH] 10.20.5.55:502 - ICS-PROTOCOL:Modbus
+    Modbus TCP exposed. No native authentication or encryption ...
+
+  [HIGH] 10.20.5.61:3389 - REMOTE-ACCESS:RDP
+    Remote Desktop Protocol exposed on OT network ...
+
+  [MEDIUM] 10.20.5.70:22 - REMOTE-ACCESS:SSH
+    SSH port open on OT host. Ensure key-based auth only ...
+
+============================================================
+  SCAN COMPLETE
+  Hosts Scanned : 254
+  Findings      : 5
+  Report Saved  : ./reports/EGP_Report_20260803_221512.txt
+============================================================
+
+[!] ACTION REQUIRED: Review findings and apply remediations.
+    See docs/CISA-Reference.md and docs/Threat-Intelligence.md
 ```
 
 ## What This Does NOT Do
@@ -138,16 +188,29 @@ Report saved: ./reports/Energy-Grid-Protector-20260803-221512.csv
 ```
 Energy-Grid-Protector/
 ├── README.md
-├── LICENSE
+├── CHANGELOG.md
 ├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
-├── reports/                  # Generated scan reports (CSV/text)
+├── ROADMAP.md
+├── LICENSE
+├── reports/                  # Generated scan reports (text)
 ├── scripts/
 │   ├── powershell/           # PowerShell version for Windows
-│   │   └── Energy-Grid-Protector.ps1
+│   │   └── EGP.ps1
 │   └── bash/                 # Bash version for Linux/macOS
-│       └── Energy-Grid-Protector.sh
-└── docs/                     # (future) detailed documentation
+│       └── EGP.sh
+├── docs/
+│   ├── CISA-Reference.md     # CISA advisory and remote-access hardening guidance
+│   ├── Threat-Intelligence.md # ICS protocol threat context and hardening
+│   ├── threat-model.md       # Scope and false positive caveats
+│   ├── safe-operation.md     # Operational safety guidance
+│   └── sample-report.md      # Example scan output
+└── tests/
+    ├── bash/
+    │   └── repository_tests.sh
+    └── PowerShell/
+        └── Repository.Tests.ps1
 ```
 
 ---
@@ -169,8 +232,8 @@ A: Yes. No internet access is required. Copy the script to a jump host inside th
 **Q: Is this NERC CIP compliant?**  
 A: This tool supports CIP-007 (Security Management Controls), CIP-010 (Configuration Change Management), and CIP-015 (Internal Network Security Monitoring) activities, but it does not replace a formal NERC CIP audit or assessment.
 
-**Q: Can I integrate the CSV reports into my SIEM or ticketing system?**  
-A: Yes. The CSV output is designed to import directly into ServiceNow, Jira, Splunk, or any SIEM that accepts CSV ingestion.
+**Q: Can I integrate reports into my SIEM or ticketing system?**  
+A: Yes. Reports are plain-text with a consistent `[timestamp] [severity] IP:port - label | description | REMEDIATION: ...` format, making them easy to parse with standard log shippers (Filebeat, Splunk Universal Forwarder) or import into ServiceNow and Jira.
 
 **Q: Is it free for commercial use by utilities?**  
 A: Yes — MIT License. Use it, modify it, redistribute it. Attribution appreciated.
@@ -190,7 +253,13 @@ A: Yes — MIT License. Use it, modify it, redistribute it. Attribution apprecia
 
 ## Documentation
 
-Detailed documentation for scan modes, vendor fingerprinting logic, and report formats will be added to the `docs/` folder in future releases.
+| Document | Description |
+|---|---|
+| [docs/CISA-Reference.md](docs/CISA-Reference.md) | CISA advisory details, CVE remediation steps, remote access hardening |
+| [docs/Threat-Intelligence.md](docs/Threat-Intelligence.md) | ICS protocol threat context, adversary tactics, protocol hardening |
+| [docs/threat-model.md](docs/threat-model.md) | Scope definition and false positive caveats |
+| [docs/safe-operation.md](docs/safe-operation.md) | Operational safety guidance before scanning |
+| [docs/sample-report.md](docs/sample-report.md) | Example scan report output |
 
 ## Technical Specifications
 
@@ -198,7 +267,9 @@ Detailed documentation for scan modes, vendor fingerprinting logic, and report f
 - **PowerShell**: 5.1+ (Windows PowerShell) or 7.0+ (PowerShell Core)
 - **Bash**: 4.0+ (Linux/macOS)
 - **Network Requirements**: Direct or routed access to target OT/SCADA subnets
-- **Privileges**: No elevated privileges required for basic port scanning; admin/root may be needed for banner grabbing
+- **Privileges**: No elevated privileges required
+- **Scan scope**: /24 subnets (254 hosts); each host scanned across up to 20+ ports depending on mode
+- **Deduplication**: Each IP:port pair reported once; overlapping CVE and protocol checks do not produce duplicate findings
 
 ## Contributing
 

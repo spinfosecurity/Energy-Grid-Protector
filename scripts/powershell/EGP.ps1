@@ -7,7 +7,8 @@
       - Named vendor CVEs (Hitachi Energy, ABB, B&R)
       - Hitachi Energy RTU500 series vulnerability exposure
       - Remote-access protocol exposure (RDP, VNC, SSH, Telnet, FTP, HTTP/HTTPS)
-      - ICS protocol exposure (DNP3, Modbus, IEC 60870-5-104, IEC 61850, EtherNet/IP)
+      - ICS protocol exposure (DNP3, Modbus, IEC 60870-5-104, IEC 61850, EtherNet/IP,
+        PROFINET, OPC UA)
     Produces severity-tagged (CRITICAL/HIGH/MEDIUM) console output and a timestamped
     report saved to the reports/ directory.
 
@@ -41,7 +42,7 @@
 
 .NOTES
     Author  : spinfosecurity
-    Version : 1.0.0
+    Version : 1.1.0
     License : MIT
     Project : https://github.com/spinfosecurity/Energy-Grid-Protector
 #>
@@ -72,7 +73,7 @@ $ErrorActionPreference = 'Stop'
 function Show-Banner {
     Write-Host ""
     Write-Host "============================================================" -ForegroundColor Cyan
-    Write-Host "  Energy Grid Protector (EGP) v1.0.0" -ForegroundColor Cyan
+    Write-Host "  Energy Grid Protector (EGP) v1.1.0" -ForegroundColor Cyan
     Write-Host "  OT/SCADA Cybersecurity Scanner - Power Grid Edition" -ForegroundColor Cyan
     Write-Host "  github.com/spinfosecurity/Energy-Grid-Protector" -ForegroundColor Cyan
     Write-Host "  Ref: CISA AA26-097A | FBI PSA 2026-08-01" -ForegroundColor DarkCyan
@@ -94,7 +95,7 @@ function Get-SeverityColor([string]$Severity) {
 }
 
 # ---------------------------------------------------------------------------
-# TCP port test
+# TCP port test — always disposes the TcpClient to avoid socket leaks
 # ---------------------------------------------------------------------------
 function Test-TcpPort {
     [OutputType([bool])]
@@ -103,17 +104,15 @@ function Test-TcpPort {
         [int]$Port,
         [int]$TimeoutMilliseconds
     )
+    $client = [System.Net.Sockets.TcpClient]::new()
     try {
-        $client = [System.Net.Sockets.TcpClient]::new()
-        $task   = $client.ConnectAsync($IpAddress, $Port)
-        if ($task.Wait($TimeoutMilliseconds)) {
-            $client.Close()
-            return $true
-        }
-        $client.Close()
-        return $false
+        $task = $client.ConnectAsync($IpAddress, $Port)
+        $connected = $task.Wait($TimeoutMilliseconds)
+        return $connected -and $client.Connected
     } catch {
         return $false
+    } finally {
+        $client.Dispose()
     }
 }
 
@@ -151,26 +150,29 @@ $CveChecks = [ordered]@{
 # Remote-access port definitions
 # ---------------------------------------------------------------------------
 $RemoteAccessPorts = [ordered]@{
-    3389  = @{ Name = 'RDP';    Severity = 'HIGH';   Description = 'Remote Desktop Protocol exposed on OT network. CISA AA26-097A and FBI PSA 2026-08-01 document active exploitation. Remove or restrict immediately.' }
+    3389  = @{ Name = 'RDP';    Severity = 'HIGH';     Description = 'Remote Desktop Protocol exposed on OT network. CISA AA26-097A and FBI PSA 2026-08-01 document active exploitation. Remove or restrict immediately.' }
     5900  = @{ Name = 'VNC';   Severity = 'CRITICAL'; Description = 'VNC port 5900 exposed. FBI PSA 2026-08-01 warns of active VNC exploitation against ICS environments. Disable or place behind VPN.' }
     5901  = @{ Name = 'VNC-1'; Severity = 'CRITICAL'; Description = 'VNC port 5901 exposed. FBI PSA 2026-08-01 warns of active VNC exploitation against ICS environments. Disable or place behind VPN.' }
-    22    = @{ Name = 'SSH';    Severity = 'MEDIUM';  Description = 'SSH port open on OT host. Ensure key-based auth only, disable password auth, restrict to jump host access.' }
+    22    = @{ Name = 'SSH';    Severity = 'MEDIUM';   Description = 'SSH port open on OT host. Ensure key-based auth only, disable password auth, restrict to jump host access.' }
     23    = @{ Name = 'Telnet'; Severity = 'CRITICAL'; Description = 'Telnet transmits credentials in cleartext. Immediate removal required on all OT/SCADA assets per CISA guidance.' }
-    21    = @{ Name = 'FTP';    Severity = 'HIGH';    Description = 'FTP transmits data and credentials in cleartext. Replace with SFTP or SCP. Active ICS malware campaigns use FTP for lateral movement.' }
-    80    = @{ Name = 'HTTP';   Severity = 'MEDIUM';  Description = 'Unencrypted HTTP web interface exposed. Migrate to HTTPS. Restrict web management to operations VLAN only.' }
-    443   = @{ Name = 'HTTPS';  Severity = 'MEDIUM';  Description = 'HTTPS web interface exposed. Verify certificate validity, disable legacy TLS versions, restrict to authorized clients.' }
+    21    = @{ Name = 'FTP';    Severity = 'HIGH';     Description = 'FTP transmits data and credentials in cleartext. Replace with SFTP or SCP. Active ICS malware campaigns use FTP for lateral movement.' }
+    80    = @{ Name = 'HTTP';   Severity = 'MEDIUM';   Description = 'Unencrypted HTTP web interface exposed. Migrate to HTTPS. Restrict web management to operations VLAN only.' }
+    443   = @{ Name = 'HTTPS';  Severity = 'MEDIUM';   Description = 'HTTPS web interface exposed. Verify certificate validity, disable legacy TLS versions, restrict to authorized clients.' }
 }
 
 # ---------------------------------------------------------------------------
 # ICS protocol port definitions
 # ---------------------------------------------------------------------------
 $IcsPorts = [ordered]@{
-    20000 = @{ Name = 'DNP3';          Severity = 'HIGH';   Description = 'DNP3 (IEEE 1815) exposed. Lacks authentication in many implementations. CISA AA26-097A: Iranian actors probing DNP3 on grid assets.' }
-    502   = @{ Name = 'Modbus';        Severity = 'HIGH';   Description = 'Modbus TCP exposed. No native authentication or encryption. Restrict to known master station IPs via ACL.' }
-    102   = @{ Name = 'IEC-61850/S7';  Severity = 'HIGH';   Description = 'IEC 61850 MMS / Siemens S7 port exposed. Verify device identity and restrict to authorized engineering workstations.' }
-    2404  = @{ Name = 'IEC-60870-5-104'; Severity = 'HIGH'; Description = 'IEC 60870-5-104 (IEC104) exposed. Used for SCADA control. Restrict to designated control center IP ranges.' }
-    44818 = @{ Name = 'EtherNet/IP';   Severity = 'MEDIUM'; Description = 'EtherNet/IP (CIP) exposed. Verify this is intentional. Restrict to PLC management VLAN and engineering stations.' }
-    2222  = @{ Name = 'EtherNet/IP-IO'; Severity = 'MEDIUM'; Description = 'EtherNet/IP implicit I/O port exposed. Should not be reachable from non-OT VLANs. Review network segmentation.' }
+    20000 = @{ Name = 'DNP3';             Severity = 'HIGH';   Description = 'DNP3 (IEEE 1815) exposed. Lacks authentication in many implementations. CISA AA26-097A: Iranian actors probing DNP3 on grid assets.' }
+    502   = @{ Name = 'Modbus';           Severity = 'HIGH';   Description = 'Modbus TCP exposed. No native authentication or encryption. Restrict to known master station IPs via ACL.' }
+    102   = @{ Name = 'IEC-61850/S7';     Severity = 'HIGH';   Description = 'IEC 61850 MMS / Siemens S7 port exposed. Verify device identity and restrict to authorized engineering workstations.' }
+    2404  = @{ Name = 'IEC-60870-5-104';  Severity = 'HIGH';   Description = 'IEC 60870-5-104 (IEC104) exposed. Used for SCADA control. Restrict to designated control center IP ranges.' }
+    44818 = @{ Name = 'EtherNet/IP';      Severity = 'MEDIUM'; Description = 'EtherNet/IP (CIP) exposed. Verify this is intentional. Restrict to PLC management VLAN and engineering stations.' }
+    2222  = @{ Name = 'EtherNet/IP-IO';   Severity = 'MEDIUM'; Description = 'EtherNet/IP implicit I/O port exposed. Should not be reachable from non-OT VLANs. Review network segmentation.' }
+    34962 = @{ Name = 'PROFINET-RT';      Severity = 'HIGH';   Description = 'PROFINET RT port exposed (IEC 61158). Restrict to PLC/drive management VLAN only.' }
+    34963 = @{ Name = 'PROFINET-RTA';     Severity = 'HIGH';   Description = 'PROFINET RTA port exposed (IEC 61158). Should not be reachable outside the automation cell.' }
+    4840  = @{ Name = 'OPC-UA';           Severity = 'MEDIUM'; Description = 'OPC UA port exposed. Verify certificate-based authentication is enforced. Restrict to authorized clients.' }
 }
 
 # ---------------------------------------------------------------------------
@@ -237,7 +239,7 @@ $modeLabel   = if ($CveOnly) { 'CVE-ONLY (fast-scan)' } else { 'FULL SCAN' }
 
 # Initialize report file
 @"
-Energy Grid Protector (EGP) v1.0.0
+Energy Grid Protector (EGP) v1.1.0
 Scan Mode    : $modeLabel
 Target Subnet: $Subnet
 Timeout      : ${TimeoutMs}ms
@@ -264,6 +266,9 @@ $totalHosts   = $hosts.Count
 $findings     = 0
 $hostsScanned = 0
 
+# Deduplication set: tracks "IP:port" strings already reported
+$seenFindings = [System.Collections.Generic.HashSet[string]]::new()
+
 foreach ($ip in $hosts) {
     $hostsScanned++
     $pct = [math]::Round(($hostsScanned / $totalHosts) * 100, 1)
@@ -275,7 +280,10 @@ foreach ($ip in $hosts) {
     foreach ($cveId in $CveChecks.Keys) {
         $cve = $CveChecks[$cveId]
         foreach ($port in $cve.Ports) {
-            if (Test-TcpPort -IpAddress $ip -Port $port -TimeoutMilliseconds $TimeoutMs) {
+            $key = "${ip}:${port}"
+            if (-not $seenFindings.Contains($key) -and
+                (Test-TcpPort -IpAddress $ip -Port $port -TimeoutMilliseconds $TimeoutMs)) {
+                [void]$seenFindings.Add($key)
                 Write-Finding -ReportPath $reportFile `
                     -IpAddress $ip -Port $port `
                     -FindingLabel $cveId `
@@ -290,7 +298,10 @@ foreach ($ip in $hosts) {
     if (-not $CveOnly) {
         # --- Remote Access Checks ---
         foreach ($port in $RemoteAccessPorts.Keys) {
-            if (Test-TcpPort -IpAddress $ip -Port $port -TimeoutMilliseconds $TimeoutMs) {
+            $key = "${ip}:${port}"
+            if (-not $seenFindings.Contains($key) -and
+                (Test-TcpPort -IpAddress $ip -Port $port -TimeoutMilliseconds $TimeoutMs)) {
+                [void]$seenFindings.Add($key)
                 $ra = $RemoteAccessPorts[$port]
                 Write-Finding -ReportPath $reportFile `
                     -IpAddress $ip -Port $port `
@@ -304,7 +315,10 @@ foreach ($ip in $hosts) {
 
         # --- ICS Protocol Checks ---
         foreach ($port in $IcsPorts.Keys) {
-            if (Test-TcpPort -IpAddress $ip -Port $port -TimeoutMilliseconds $TimeoutMs) {
+            $key = "${ip}:${port}"
+            if (-not $seenFindings.Contains($key) -and
+                (Test-TcpPort -IpAddress $ip -Port $port -TimeoutMilliseconds $TimeoutMs)) {
+                [void]$seenFindings.Add($key)
                 $ics = $IcsPorts[$port]
                 Write-Finding -ReportPath $reportFile `
                     -IpAddress $ip -Port $port `
