@@ -1,4 +1,4 @@
-$Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$Root = Resolve-Path (Join-Path $PSScriptRoot '../..')
 $ScriptFiles = @(Get-ChildItem -Path (Join-Path $Root 'scripts') -Filter '*.ps1' -Recurse)
 
 Describe 'Energy-Grid-Protector repository' {
