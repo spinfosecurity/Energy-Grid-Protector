@@ -1,4 +1,5 @@
-$Root = Resolve-Path (Join-Path $PSScriptRoot '../..')
+$_scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { $null }
+$Root = if ($_scriptDir) { Resolve-Path (Join-Path $_scriptDir '../..') } else { $PWD.Path }
 $ScriptFiles = @(Get-ChildItem -Path (Join-Path $Root 'scripts') -Filter '*.ps1' -Recurse)
 
 Describe 'Energy-Grid-Protector repository' {

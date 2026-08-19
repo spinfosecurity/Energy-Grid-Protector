@@ -47,6 +47,10 @@
     Project : https://github.com/spinfosecurity/Energy-Grid-Protector
 #>
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+    'PSAvoidUsingWriteHost', '',
+    Justification = 'Intentional color console output for a CLI security scanner tool.'
+)]
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true, HelpMessage = 'Target /24 CIDR subnet, e.g. 192.168.1.0/24')]
@@ -95,7 +99,7 @@ function Get-SeverityColor([string]$Severity) {
 }
 
 # ---------------------------------------------------------------------------
-# TCP port test — always disposes the TcpClient to avoid socket leaks
+# TCP port test - always disposes the TcpClient to avoid socket leaks
 # ---------------------------------------------------------------------------
 function Test-TcpPort {
     [OutputType([bool])]
@@ -178,7 +182,7 @@ $IcsPorts = [ordered]@{
 # ---------------------------------------------------------------------------
 # Parse /24 subnet into list of host IPs
 # ---------------------------------------------------------------------------
-function Get-SubnetHosts([string]$CidrSubnet) {
+function Get-SubnetHost([string]$CidrSubnet) {
     $baseIp = $CidrSubnet -replace '/24$', ''
     $octets = $baseIp -split '\.'
     if ($octets.Count -ne 4) {
@@ -256,7 +260,7 @@ Write-Host "[*] Report     : $reportFile" -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    $hosts = Get-SubnetHosts -CidrSubnet $Subnet
+    $hosts = Get-SubnetHost -CidrSubnet $Subnet
 } catch {
     Write-Error "Subnet parsing failed: $_"
     exit 1
