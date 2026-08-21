@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Energy Grid Protector (EGP) v1.0.0
+# Energy Grid Protector (EGP) v1.1.0
 # OT/SCADA Cybersecurity Scanner - Power Grid Edition
 # Author  : spinfosecurity
 # License : MIT
@@ -39,7 +39,7 @@ OUTPUT_DIR="./reports"
 # Color codes
 # ---------------------------------------------------------------------------
 RED='\033[0;31m'
-DARK_RED='\033[0;31m'
+BOLD_RED='\033[1;31m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -107,17 +107,18 @@ validate_inputs() {
 }
 
 # ---------------------------------------------------------------------------
-# TCP port check using /dev/tcp (no nmap/nc dependency)
-# Falls back to nc if /dev/tcp unavailable
+# TCP port check with enforced timeout
+# Uses the system `timeout` command to bound /dev/tcp connect time.
+# Falls back gracefully if `timeout` is unavailable.
 # ---------------------------------------------------------------------------
 check_port() {
     local ip="$1"
     local port="$2"
-    if bash -c "exec 3<>/dev/tcp/${ip}/${port}" 2>/dev/null; then
-        exec 3>&- 2>/dev/null || true
-        return 0
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${TIMEOUT}" bash -c "exec 3<>/dev/tcp/${ip}/${port}" 2>/dev/null
+    else
+        bash -c "exec 3<>/dev/tcp/${ip}/${port}" 2>/dev/null
     fi
-    return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -145,8 +146,8 @@ write_finding() {
     # Console output with severity color
     local color="$NC"
     case "$severity" in
-        CRITICAL) color="$RED" ;;
-        HIGH)     color="$DARK_RED" ;;
+        CRITICAL) color="$BOLD_RED" ;;
+        HIGH)     color="$RED" ;;
         MEDIUM)   color="$YELLOW" ;;
     esac
 
@@ -189,6 +190,14 @@ ics_ports[102]="IEC-61850-S7|HIGH|IEC 61850 MMS / Siemens S7 port exposed. Verif
 ics_ports[2404]="IEC-60870-5-104|HIGH|IEC 60870-5-104 (IEC104) exposed. Used for SCADA control. Restrict to designated control center IP ranges."
 ics_ports[44818]="EtherNetIP|MEDIUM|EtherNet/IP (CIP) exposed. Restrict to PLC management VLAN and engineering stations."
 ics_ports[2222]="EtherNetIP-IO|MEDIUM|EtherNet/IP implicit I/O port exposed. Should not be reachable from non-OT VLANs. Review network segmentation."
+ics_ports[34962]="PROFINET-RT|HIGH|PROFINET RT port exposed (IEC 61158). Restrict to PLC/drive management VLAN only."
+ics_ports[34963]="PROFINET-RTA|HIGH|PROFINET RTA port exposed (IEC 61158). Should not be reachable outside the automation cell."
+ics_ports[4840]="OPC-UA|MEDIUM|OPC UA port exposed. Verify certificate-based authentication is enforced. Restrict to authorized clients."
+
+# ---------------------------------------------------------------------------
+# Seen findings set for deduplication (IP:port)
+# ---------------------------------------------------------------------------
+declare -A seen_findings
 
 # ---------------------------------------------------------------------------
 # Banner
@@ -196,7 +205,7 @@ ics_ports[2222]="EtherNetIP-IO|MEDIUM|EtherNet/IP implicit I/O port exposed. Sho
 show_banner() {
     echo -e "${CYAN}"
     echo "============================================================"
-    echo "  Energy Grid Protector (EGP) v1.0.0"
+    echo "  Energy Grid Protector (EGP) v1.1.0"
     echo "  OT/SCADA Cybersecurity Scanner - Power Grid Edition"
     echo "  github.com/spinfosecurity/Energy-Grid-Protector"
     echo -e "  Ref: CISA AA26-097A | FBI PSA 2026-08-01${NC}"
@@ -226,7 +235,7 @@ fi
 
 # Initialize report
 cat > "$REPORT_FILE" <<EOF
-Energy Grid Protector (EGP) v1.0.0
+Energy Grid Protector (EGP) v1.1.0
 Scan Mode    : $MODE_LABEL
 Target Subnet: $SUBNET
 Timeout      : ${TIMEOUT}s
@@ -266,7 +275,9 @@ for i in $(seq 1 254); do
         IFS='|' read -r ports_str description severity remediation <<< "${cve_checks[$cve_id]}"
         IFS=',' read -r -a port_list <<< "$ports_str"
         for port in "${port_list[@]}"; do
-            if check_port "$IP" "$port" 2>/dev/null; then
+            dedup_key="${IP}:${port}"
+            if [[ -z "${seen_findings[$dedup_key]+x}" ]] && check_port "$IP" "$port"; then
+                seen_findings[$dedup_key]=1
                 echo ""
                 write_finding "$REPORT_FILE" "$IP" "$port" "$cve_id" "$severity" "$description" "$remediation"
                 FINDINGS=$((FINDINGS + 1))
@@ -278,7 +289,9 @@ for i in $(seq 1 254); do
         # --- Remote Access Checks ---
         for port in "${!remote_access_ports[@]}"; do
             IFS='|' read -r name severity description <<< "${remote_access_ports[$port]}"
-            if check_port "$IP" "$port" 2>/dev/null; then
+            dedup_key="${IP}:${port}"
+            if [[ -z "${seen_findings[$dedup_key]+x}" ]] && check_port "$IP" "$port"; then
+                seen_findings[$dedup_key]=1
                 echo ""
                 write_finding "$REPORT_FILE" "$IP" "$port" "REMOTE-ACCESS:${name}" "$severity" "$description" "See docs/CISA-Reference.md"
                 FINDINGS=$((FINDINGS + 1))
@@ -288,7 +301,9 @@ for i in $(seq 1 254); do
         # --- ICS Protocol Checks ---
         for port in "${!ics_ports[@]}"; do
             IFS='|' read -r name severity description <<< "${ics_ports[$port]}"
-            if check_port "$IP" "$port" 2>/dev/null; then
+            dedup_key="${IP}:${port}"
+            if [[ -z "${seen_findings[$dedup_key]+x}" ]] && check_port "$IP" "$port"; then
+                seen_findings[$dedup_key]=1
                 echo ""
                 write_finding "$REPORT_FILE" "$IP" "$port" "ICS-PROTOCOL:${name}" "$severity" "$description" "See docs/Threat-Intelligence.md"
                 FINDINGS=$((FINDINGS + 1))
@@ -325,7 +340,7 @@ echo -e "${CYAN}============================================================${NC
 echo -e "  ${GREEN}SCAN COMPLETE${NC}"
 echo -e "  ${WHITE}Hosts Scanned : ${HOSTS_SCANNED}${NC}"
 if (( FINDINGS > 0 )); then
-    echo -e "  ${RED}Findings      : ${FINDINGS}${NC}"
+    echo -e "  ${BOLD_RED}Findings      : ${FINDINGS}${NC}"
 else
     echo -e "  ${GREEN}Findings      : ${FINDINGS}${NC}"
 fi
@@ -333,6 +348,6 @@ echo -e "  ${WHITE}Report Saved  : ${REPORT_FILE}${NC}"
 echo -e "${CYAN}============================================================${NC}"
 echo ""
 if (( FINDINGS > 0 )); then
-    echo -e "${RED}[!] ACTION REQUIRED: Review findings and apply remediations.${NC}"
+    echo -e "${BOLD_RED}[!] ACTION REQUIRED: Review findings and apply remediations.${NC}"
     echo -e "${YELLOW}    See docs/CISA-Reference.md and docs/Threat-Intelligence.md${NC}"
 fi
